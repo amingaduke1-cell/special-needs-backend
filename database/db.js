@@ -1,34 +1,20 @@
-const sqlite3 = require('sqlite3').verbose();
+const mongoose = require("mongoose");
 
-const db = new sqlite3.Database('./database/sne.db');
+const connectDB = async () => {
 
-db.serialize(() => {
+    try {
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS admin (
-      id INTEGER PRIMARY KEY,
-      email TEXT,
-      password TEXT
-    )
-  `);
+        await mongoose.connect(process.env.MONGO_URI);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS contacts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT,
-      supportType TEXT,
-      message TEXT,
-      createdAt TEXT
-    )
-  `);
+        console.log("MongoDB Connected ✅");
 
-  // Default admin
-  db.run(`
-    INSERT OR IGNORE INTO admin (id,email,password)
-    VALUES (1,'admin@email.com','123456')
-  `);
+    } catch (error) {
 
-});
+        console.error(error);
+        process.exit(1);
 
-module.exports = db;
+    }
+
+};
+
+module.exports = connectDB;
