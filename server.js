@@ -1,42 +1,41 @@
-require('dotenv').config(); // Load .env variables
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
+
+const Contact = require('./models/contact');
 
 const app = express();
 
-// Middleware
+
 app.use(cors());
 app.use(express.json());
 
-// Config
+
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
-/* =============================
-   Admin Account
-============================= */
+
+mongoose.connect(process.env.MONGO_URI)
+.then(() => console.log("MongoDB Connected"))
+.catch(err => console.log(err));
+
+
 const admin = {
   email: "admin@email.com",
   password: "123456"
 };
 
-/* =============================
-   Temporary Storage
-============================= */
-let contacts = [];
 
-/* =============================
-   Home Route
-============================= */
 app.get('/', (req, res) => {
   res.send("SNE Backend Professional Version Running");
 });
 
-/* =============================
-   LOGIN ROUTE
-============================= */
+
 app.post('/api/auth/login', (req, res) => {
+
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -47,6 +46,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   if (email === admin.email && password === admin.password) {
+
     const token = jwt.sign(
       { email: admin.email, role: "admin" },
       JWT_SECRET,
@@ -57,18 +57,18 @@ app.post('/api/auth/login', (req, res) => {
       success: true,
       token
     });
+
   }
 
   return res.status(401).json({
     success: false,
     message: "Invalid credentials"
   });
+
 });
 
-/* =============================
-   AUTH MIDDLEWARE
-============================= */
 function protect(req, res, next) {
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -79,21 +79,26 @@ function protect(req, res, next) {
   }
 
   try {
+
     const token = authHeader.split(" ")[1];
+
     jwt.verify(token, JWT_SECRET);
+
     next();
+
   } catch {
+
     return res.status(401).json({
       success: false,
       message: "Invalid token"
     });
+
   }
+
 }
 
-/* =============================
-   CREATE CONTACT
-============================= */
-app.post('/api/contact', (req, res) => {
+app.post('/api/contact', async (req, res) => {
+
   const { name, email, supportType, message } = req.body;
 
   if (!name || !email || !message) {
@@ -103,59 +108,88 @@ app.post('/api/contact', (req, res) => {
     });
   }
 
-  const newContact = {
-    id: Date.now().toString(),
-    name,
-    email,
-    supportType,
-    message,
-    createdAt: new Date()
-  };
+  try {
 
-  contacts.unshift(newContact); // newest on top
+    const newContact = await Contact.create({
+      name,
+      email,
+      supportType,
+      message
+    });
 
-  res.json({
-    success: true,
-    data: newContact
-  });
+    res.json({
+      success: true,
+      data: newContact
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to save contact"
+    });
+
+  }
+
 });
 
-/* =============================
-   GET CONTACTS (Protected)
-============================= */
-app.get('/api/contact', protect, (req, res) => {
-  res.json({
-    success: true,
-    data: contacts
-  });
+app.get('/api/contact', protect, async (req, res) => {
+
+  try {
+
+    const contacts = await Contact
+      .find()
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: contacts
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch contacts"
+    });
+
+  }
+
 });
 
-/* =============================
-   DELETE CONTACT
-============================= */
-app.delete('/api/contact/:id', protect, (req, res) => {
-  const id = req.params.id;
-  contacts = contacts.filter(c => c.id !== id);
+app.delete('/api/contact/:id', protect, async (req, res) => {
 
-  res.json({
-    success: true
-  });
+  try {
+
+    await Contact.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: "Delete failed"
+    });
+
+  }
+
 });
 
-/* =============================
-   GLOBAL ERROR HANDLER
-============================= */
+
 app.use((err, req, res, next) => {
+
   console.error(err);
+
   res.status(500).json({
     success: false,
     message: "Server error"
   });
+
 });
 
-/* =============================
-   START SERVER
-============================= */
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
