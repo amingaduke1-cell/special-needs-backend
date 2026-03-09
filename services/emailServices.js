@@ -1,3 +1,4 @@
+
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
@@ -8,22 +9,24 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const sendContactEmail = async (contact) => {
+exports.sendEmail = async (data) => {
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER, // You can change this to admin or any email you want to receive
+      subject: "New Contact Message",
+      text: `
+Name: ${data.name}
+Email: ${data.email}
+Support Type: ${data.supportType}
+Message: ${data.message}
+      `
+    });
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER,
-    subject: "New Contact Message - SNE Website",
-    html: `
-      <h2>New Message Received</h2>
-      <p><strong>Name:</strong> ${contact.name}</p>
-      <p><strong>Email:</strong> ${contact.email}</p>
-      <p><strong>Support Type:</strong> ${contact.supportType}</p>
-      <p><strong>Message:</strong> ${contact.message}</p>
-    `
-  };
+    console.log("Email sent successfully");
 
-  await transporter.sendMail(mailOptions);
+  } catch (err) {
+    console.error("Email failed:", err);
+    throw err;
+  }
 };
-
-module.exports = sendContactEmail;
