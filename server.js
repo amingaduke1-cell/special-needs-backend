@@ -193,3 +193,12 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+const { sendEmail } = require("./services/emailServices");
+
+sendEmail({
+  name: "Test",
+  email: "test@gmail.com",
+  supportType: "Testing",
+  message: "This is a test"
+});
