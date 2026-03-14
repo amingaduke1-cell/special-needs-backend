@@ -13,7 +13,6 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-
 /* ===============================
 CREATE CONTACT
 =============================== */
@@ -29,54 +28,52 @@ exports.createContact = (req, res) => {
     });
   }
 
-  db.run(
-    `INSERT INTO contacts (name,email,supportType,message,createdAt)
-     VALUES (?,?,?,?,?)`,
-    [name, email, supportType, message, new Date().toISOString()],
-    function (err) {
+  const sql = `
+    INSERT INTO contacts (name,email,supportType,message,createdAt)
+    VALUES (?,?,?,?,NOW())
+  `;
 
-      if (err) {
-        console.log(err);
-        return res.status(500).json({
-          success: false,
-          message: "Database error"
-        });
-      }
+  db.query(sql, [name, email, supportType, message], (err, result) => {
 
-      /* EMAIL NOTIFICATION */
+    if (err) {
+      console.error(err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
 
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: process.env.EMAIL_USER,
-        subject: "New Contact Message",
-        html: `
+    /* EMAIL NOTIFICATION */
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: "New Contact Message",
+      html: `
         <h2>New Message Received</h2>
         <p><b>Name:</b> ${name}</p>
         <p><b>Email:</b> ${email}</p>
         <p><b>Support Type:</b> ${supportType}</p>
         <p><b>Message:</b> ${message}</p>
-        `
-      };
+      `
+    };
 
-      transporter.sendMail(mailOptions, (error) => {
-        if (error) {
-          console.log("Email error:", error);
-        }
-      });
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) console.log("Email error:", error);
+    });
 
-      res.json({
-        success: true,
-        data: {
-          id: this.lastID,
-          name,
-          email,
-          supportType,
-          message
-        }
-      });
+    res.json({
+      success: true,
+      data: {
+        id: result.insertId,
+        name,
+        email,
+        supportType,
+        message
+      }
+    });
 
-    }
-  );
+  });
 
 };
 
@@ -87,9 +84,9 @@ GET CONTACTS
 
 exports.getContacts = (req, res) => {
 
-  db.all(
-    "SELECT * FROM contacts ORDER BY id DESC",
-    (err, rows) => {
+  db.query(
+    "SELECT * FROM contacts ORDER BY createdAt DESC",
+    (err, results) => {
 
       if (err) {
         return res.status(500).json({
@@ -99,7 +96,7 @@ exports.getContacts = (req, res) => {
 
       res.json({
         success: true,
-        data: rows
+        data: results
       });
 
     }
@@ -114,8 +111,8 @@ DELETE CONTACT
 
 exports.deleteContact = (req, res) => {
 
-  db.run(
-    "DELETE FROM contacts WHERE id=?",
+  db.query(
+    "DELETE FROM contacts WHERE id = ?",
     [req.params.id],
     (err) => {
 
