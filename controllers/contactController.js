@@ -1,7 +1,10 @@
 const db = require('../database/db');
 const nodemailer = require('nodemailer');
 
-// Email transporter
+/* ===============================
+EMAIL SETUP
+=============================== */
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -10,46 +13,55 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// CREATE CONTACT
+
+/* ===============================
+CREATE CONTACT
+=============================== */
+
 exports.createContact = (req, res) => {
 
   const { name, email, supportType, message } = req.body;
 
-  db.run(`
-    INSERT INTO contacts
-    (name,email,supportType,message,createdAt)
-    VALUES (?,?,?,?,?)
-  `,
+  if (!name || !email || !message) {
+    return res.status(400).json({
+      success: false,
+      message: "All fields required"
+    });
+  }
+
+  db.run(
+    `INSERT INTO contacts (name,email,supportType,message,createdAt)
+     VALUES (?,?,?,?,?)`,
     [name, email, supportType, message, new Date().toISOString()],
     function (err) {
 
       if (err) {
+        console.log(err);
         return res.status(500).json({
           success: false,
           message: "Database error"
         });
       }
 
-      // Send email notification
+      /* EMAIL NOTIFICATION */
+
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: process.env.EMAIL_USER,
         subject: "New Contact Message",
         html: `
-          <h2>New Message Received</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Support Type:</strong> ${supportType}</p>
-          <p><strong>Message:</strong> ${message}</p>
+        <h2>New Message Received</h2>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Support Type:</b> ${supportType}</p>
+        <p><b>Message:</b> ${message}</p>
         `
       };
 
       transporter.sendMail(mailOptions, (error) => {
-
         if (error) {
           console.log("Email error:", error);
         }
-
       });
 
       res.json({
@@ -63,33 +75,43 @@ exports.createContact = (req, res) => {
         }
       });
 
-    });
+    }
+  );
 
 };
 
 
-// GET CONTACTS
+/* ===============================
+GET CONTACTS
+=============================== */
+
 exports.getContacts = (req, res) => {
 
-  db.all("SELECT * FROM contacts ORDER BY id DESC", (err, rows) => {
+  db.all(
+    "SELECT * FROM contacts ORDER BY id DESC",
+    (err, rows) => {
 
-    if (err) {
-      return res.status(500).json({
-        success: false
+      if (err) {
+        return res.status(500).json({
+          success: false
+        });
+      }
+
+      res.json({
+        success: true,
+        data: rows
       });
+
     }
-
-    res.json({
-      success: true,
-      data: rows
-    });
-
-  });
+  );
 
 };
 
 
-// DELETE CONTACT
+/* ===============================
+DELETE CONTACT
+=============================== */
+
 exports.deleteContact = (req, res) => {
 
   db.run(
